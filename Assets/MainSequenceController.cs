@@ -1,98 +1,75 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class MainSequenceController : MonoBehaviour
 {
-    [Header("UI")]
-    public Button btnStartA, btnStartB, btnStartC; // 主選單
-    public Button btnBack;                        // 回主選單
-    public RectTransform buttonContainer;                // 動態放子按鈕的父容器
-    public Button subButtonPrefab;                // 子按鈕 Prefab
+    [Header("UI 設定")]
+    public GameObject mainMenuUI;
+    public Button btnBack;
+    public GameObject[] groupUI;        // 對應各群組的按鈕群組面板
 
-    [Header("模型群組")]
-    public PartGroupController[] groups; // A,B,C……依序拖入
+    [Header("3D 群組根節點")]
+    public GameObject[] rotationRoots;  // RotationRoot_A, RotationRoot_B …
 
-    PartGroupController current;  // 目前顯示的群組
+    private int currentGroupIndex = -1;
+    private List<PartGroupController> groupControllers = new List<PartGroupController>();
 
     void Start()
     {
-        // 綁定主選單
-        btnStartA.onClick.AddListener(() => OnSelectGroup(0));
-        btnStartB.onClick.AddListener(() => OnSelectGroup(1));
-        btnStartC.onClick.AddListener(() => OnSelectGroup(2));
-        btnBack.onClick.AddListener(OnBackToMain);
-
-        ShowMainMenu();
-    }
-
-    void ShowMainMenu()
-    {
-        // 按鈕顯示
-        btnStartA.gameObject.SetActive(true);
-        btnStartB.gameObject.SetActive(true);
-        btnStartC.gameObject.SetActive(true);
+        Debug.Log("[MainSequenceController] Start 初始化");
+        // 顯示主選單，隱藏所有群組面板與返主選單按鈕
+        mainMenuUI.SetActive(true);
         btnBack.gameObject.SetActive(false);
-        // 隱藏子按鈕
-        foreach (Transform t in buttonContainer) Destroy(t.gameObject);
-        // 把所有群組飛回原位，關閉互動
-        foreach (var g in groups)
+        for (int i = 0; i < groupUI.Length; i++)
+            groupUI[i].SetActive(false);
+        for (int i = 0; i < rotationRoots.Length; i++)
         {
-            g.FlyBackGroup();
-            g.DisableInteraction();
-            g.ResetAll();
+            rotationRoots[i].SetActive(false);
+            var pgc = rotationRoots[i].GetComponent<PartGroupController>();
+            if (pgc != null) groupControllers.Add(pgc);
         }
-        current = null;
     }
 
-    void OnSelectGroup(int idx)
+    // Inspector 中把各 BtnStartX 連到此方法，並帶入對應 index
+    public void OnClickStartGroup(int groupIndex)
     {
-        // 隱藏其它主選單
-        btnStartA.gameObject.SetActive(false);
-        btnStartB.gameObject.SetActive(false);
-        btnStartC.gameObject.SetActive(false);
+        Debug.Log($"[MainSequenceController] OnClickStartGroup({groupIndex})");
+        if (groupIndex < 0 || groupIndex >= rotationRoots.Length) return;
+
+        // 隱藏主選單、顯示返主按鈕
+        mainMenuUI.SetActive(false);
         btnBack.gameObject.SetActive(true);
 
-        // 其餘群組都飛走，只有 idx 飛回
-        for (int i = 0; i < groups.Length; i++)
+        // 如果之前有開過群組，要先關閉它
+        if (currentGroupIndex != -1)
         {
-            if (i == idx)
-            {
-                groups[i].FlyBackGroup();
-                groups[i].EnableInteraction();
-                groups[i].ResetAll();
-                current = groups[i];
-            }
-            else
-            {
-                groups[i].FlyAwayGroup();
-                groups[i].DisableInteraction();
-            }
+            Debug.Log($"[MainSequenceController] 隱藏舊群組 {currentGroupIndex}");
+            groupControllers[currentGroupIndex].FlyOutGroup();
+            groupControllers[currentGroupIndex].ResetGroup();
+            rotationRoots[currentGroupIndex].SetActive(false);
+            groupUI[currentGroupIndex].SetActive(false);
         }
 
-        // 動態產生子按鈕：對應 current.parts
-        foreach (Transform t in buttonContainer) Destroy(t.gameObject);
-        for (int i = 0; i < current.GetComponentsInChildren<PartFlyElement>().Length; i++)
-        {
-            int pi = i;
-            var btn = Instantiate(subButtonPrefab, buttonContainer);
-            btn.name = $"BtnSub_{idx}_{i}";
-            btn.GetComponentInChildren<Text>().text = $"Part {i + 1}";
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() =>
-            {
-                // 切換該零件
-                var p = current.GetComponentsInChildren<PartFlyElement>()[pi];
-                // 如果在原點就飛出，否則飛回
-                if (Vector3.Distance(p.transform.localPosition, p.transform.parent.InverseTransformPoint(p.transform.position)) < 0.01f)
-                    p.FlyAway();
-                else
-                    p.FlyBack();
-            });
-        }
+        // 顯示新群組
+        currentGroupIndex = groupIndex;
+        Debug.Log($"[MainSequenceController] 顯示新群組 {currentGroupIndex}");
+        rotationRoots[currentGroupIndex].SetActive(true);
+        groupControllers[currentGroupIndex].ActivateGroup();
+        groupUI[currentGroupIndex].SetActive(true);
     }
 
-    void OnBackToMain()
+    public void OnClickBack()
     {
-        ShowMainMenu();
+        Debug.Log("[MainSequenceController] OnClickBack 返回主選單");
+        if (currentGroupIndex != -1)
+        {
+            groupControllers[currentGroupIndex].ResetGroup();
+            rotationRoots[currentGroupIndex].SetActive(false);
+            groupUI[currentGroupIndex].SetActive(false);
+            currentGroupIndex = -1;
+        }
+        mainMenuUI.SetActive(true);
+        btnBack.gameObject.SetActive(false);
     }
 }

@@ -1,45 +1,49 @@
 using UnityEngine;
 using System.Collections;
 
-[RequireComponent(typeof(Transform))]
 public class PartFlyElement : MonoBehaviour
 {
-    [Header("︽把计")]
-    public Vector3 flyDirection = Vector3.up;  // よ local space
-    public float flyDistance = 3f;          // 禯瞒
-    public float flyTime = 1f;          // ︽┮惠丁
+    [Header("よ籔把计")]
+    public Vector3 flyDirection = Vector3.up;
+    public float flySpeed = 1f;
+    public float flyDistance = 1f;
 
-    Vector3 originPos;
+    private Vector3 initialLocalPos;
+    private bool isMoving = false;
 
-    void Awake()
+    void Start()
     {
-        // 癘魁﹍ localPosition
-        originPos = transform.localPosition;
+        initialLocalPos = transform.localPosition;
+        Debug.Log($"[PartFlyElement] {name} ﹍竚 {initialLocalPos}");
     }
 
-    public void FlyAway()
+    public void FlyOut()
     {
-        Vector3 target = originPos + flyDirection.normalized * flyDistance;
-        StopAllCoroutines();
-        StartCoroutine(FlyTo(target));
+        if (isMoving) return;
+        StartCoroutine(MoveTo(initialLocalPos + flyDirection.normalized * flyDistance, "FlyOut"));
     }
 
-    public void FlyBack()
+    public void ResetPosition()
     {
-        StopAllCoroutines();
-        StartCoroutine(FlyTo(originPos));
+        if (isMoving) return;
+        StartCoroutine(MoveTo(initialLocalPos, "Reset"));
     }
 
-    IEnumerator FlyTo(Vector3 target)
+    private IEnumerator MoveTo(Vector3 target, string action)
     {
-        Vector3 start = transform.localPosition;
-        float t = 0f;
-        while (t < flyTime)
+        isMoving = true;
+        Debug.Log($"[PartFlyElement] {name} 秨﹍ {action}  {target}");
+        while (Vector3.Distance(transform.localPosition, target) > 0.01f)
         {
-            transform.localPosition = Vector3.Lerp(start, target, t / flyTime);
-            t += Time.deltaTime;
+            transform.localPosition = Vector3.MoveTowards(
+                transform.localPosition,
+                target,
+                flySpeed * Time.deltaTime
+            );
             yield return null;
         }
         transform.localPosition = target;
+        Debug.Log($"[PartFlyElement] {name} ЧΘ {action}");
+        isMoving = false;
     }
 }
