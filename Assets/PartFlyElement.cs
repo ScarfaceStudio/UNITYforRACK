@@ -1,53 +1,58 @@
+// PartFlyElement.cs
 using UnityEngine;
 using System.Collections;
 
 public class PartFlyElement : MonoBehaviour
 {
-    [Header("飛出 & 回位設定")]
+    [Tooltip("本地空間飛出方向")]
     public Vector3 flyDirection = Vector3.up;
-    public float flySpeed = 1f;
+    [Tooltip("飛出距離")]
     public float flyDistance = 1f;
+    [Tooltip("飛行動畫時間")]
+    public float flyDuration = 0.5f;
 
-    private Vector3 initialLocalPos;
-    private bool isMoving = false;
-    public bool isOut = false;
+    private Vector3 initialPosition;
+    private Vector3 targetPosition;
+    private bool isOut = false;
 
-    void Start()
+    void Awake()
     {
-        initialLocalPos = transform.localPosition;
-        Debug.Log($"[PartFlyElement] {name} 初始位置: {initialLocalPos}");
+        initialPosition = transform.localPosition;
+        targetPosition = initialPosition + flyDirection.normalized * flyDistance;
     }
 
-    // 切換飛出 / 回位
-    public void Toggle()
+    public void ToggleFly()
     {
-        if (isMoving) return;
-        if (!isOut) FlyOut();
-        else ResetPosition();
-        isOut = !isOut;
-    }
-
-    public void FlyOut()
-    {
-        StartCoroutine(MoveTo(initialLocalPos + flyDirection.normalized * flyDistance, "FlyOut"));
+        StopAllCoroutines();
+        if (!isOut)
+        {
+            StartCoroutine(MoveTo(targetPosition, flyDuration));
+            isOut = true;
+        }
+        else
+        {
+            StartCoroutine(MoveTo(initialPosition, flyDuration));
+            isOut = false;
+        }
     }
 
     public void ResetPosition()
     {
-        StartCoroutine(MoveTo(initialLocalPos, "Reset"));
+        StopAllCoroutines();
+        transform.localPosition = initialPosition;
+        isOut = false;
     }
 
-    IEnumerator MoveTo(Vector3 target, string action)
+    private IEnumerator MoveTo(Vector3 dest, float dur)
     {
-        isMoving = true;
-        Debug.Log($"[PartFlyElement] {name} 開始 {action} 到 {target}");
-        while (Vector3.Distance(transform.localPosition, target) > 0.01f)
+        Vector3 start = transform.localPosition;
+        float t = 0;
+        while (t < dur)
         {
-            transform.localPosition = Vector3.MoveTowards(transform.localPosition, target, flySpeed * Time.deltaTime);
+            t += Time.deltaTime;
+            transform.localPosition = Vector3.Lerp(start, dest, t / dur);
             yield return null;
         }
-        transform.localPosition = target;
-        Debug.Log($"[PartFlyElement] {name} 完成 {action}");
-        isMoving = false;
+        transform.localPosition = dest;
     }
 }
